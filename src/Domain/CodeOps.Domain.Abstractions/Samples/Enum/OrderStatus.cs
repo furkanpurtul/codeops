@@ -1,0 +1,14 @@
+﻿namespace CodeOps.Domain.Abstractions.Samples.Enum
+{
+    public class OrderStatus : Enumeration<OrderStatus>
+    {
+        public static readonly OrderStatus Pending = new(1, "Pending");
+        public static readonly OrderStatus Processing = new(2, "Processing");
+        public static readonly OrderStatus Shipped = new(3, "Shipped");
+        public static readonly OrderStatus Delivered = new(4, "Delivered");
+        public static readonly OrderStatus Cancelled = new(5, "Cancelled");
+        private OrderStatus(int value, string name) : base(value, name)
+        {
+        }
+    }
+}

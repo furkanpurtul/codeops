@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Concurrent;
 
 namespace CodeOps.Domain.Abstractions
@@ -158,11 +159,24 @@ namespace CodeOps.Domain.Abstractions
                     $"Handler {handler.GetType().Name} does not have a HandleAsync method");
             }
 
-            var task = handleMethod.Invoke(handler, [domainEvent, cancellationToken]) as Task;
-            
-            if (task != null)
+            try
             {
-                await task.ConfigureAwait(false);
+                var task = handleMethod.Invoke(handler, [domainEvent, cancellationToken]) as Task;
+                
+                if (task != null)
+                {
+                    await task.ConfigureAwait(false);
+                }
+                else
+                {
+                    throw new InvalidOperationException(
+                        $"Handler {handler.GetType().Name}.HandleAsync did not return a Task");
+                }
+            }
+            catch (System.Reflection.TargetInvocationException ex) when (ex.InnerException != null)
+            {
+                // Unwrap the target invocation exception to provide clearer error messages
+                throw ex.InnerException;
             }
         }
     }

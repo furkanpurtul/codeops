@@ -19,7 +19,7 @@ namespace CodeOps.Domain.Abstractions
         /// <returns>A task representing the asynchronous operation.</returns>
         /// <remarks>
         /// This method should be idempotent when possible, as events may be dispatched multiple times in failure scenarios.
-        /// Exceptions thrown from this method will be caught and logged by the dispatcher.
+        /// Exceptions thrown from this method will be caught by the dispatcher and wrapped in an AggregateException.
         /// </remarks>
         Task HandleAsync(TEvent domainEvent, CancellationToken cancellationToken = default);
     }

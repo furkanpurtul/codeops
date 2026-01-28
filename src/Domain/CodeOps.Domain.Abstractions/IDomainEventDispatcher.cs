@@ -18,8 +18,8 @@ namespace CodeOps.Domain.Abstractions
         /// <returns>A task representing the asynchronous dispatch operation.</returns>
         /// <remarks>
         /// All handlers for the event type will be invoked sequentially.
-        /// If a handler throws an exception, it will be caught and the dispatcher will continue
-        /// with remaining handlers, but the exception will be collected and potentially re-thrown.
+        /// Each handler will be attempted even if a previous handler throws an exception.
+        /// If one or more handlers fail, their exceptions will be collected and wrapped in an AggregateException.
         /// </remarks>
         Task DispatchAsync(IDomainEvent domainEvent, CancellationToken cancellationToken = default);
 

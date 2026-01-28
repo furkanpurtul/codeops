@@ -44,7 +44,8 @@ namespace CodeOps.Domain.Abstractions.Samples
             // Setup dependency injection
             var services = new ServiceCollection();
             services.AddDomainEventDispatcherSample();
-            var serviceProvider = services.BuildServiceProvider();
+            
+            using var serviceProvider = services.BuildServiceProvider();
 
             // Get the dispatcher
             var dispatcher = serviceProvider.GetRequiredService<IDomainEventDispatcher>();
@@ -73,6 +74,8 @@ namespace CodeOps.Domain.Abstractions.Samples
             // Example 2: Cancel an order and dispatch events
             Console.WriteLine("Example 2: Cancelling an order");
             order.Cancel("Customer requested cancellation");
+            // Note: After the previous DispatchAsync(order), events were already dequeued
+            // So DomainEvents.Count now only shows events raised after the last dispatch
             Console.WriteLine($"Order has {order.DomainEvents.Count} event(s) after cancellation");
 
             // Dispatch events individually

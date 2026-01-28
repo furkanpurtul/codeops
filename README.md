@@ -811,6 +811,7 @@ await _eventDispatcher.DispatchAsync(order);
 **Handler Features:**
 - Multiple handlers can be registered for the same event type
 - Handlers are invoked sequentially in registration order
+- All handlers will be attempted even if previous handlers fail
 - Handler exceptions are collected and wrapped in `AggregateException`
 - Thread-safe for concurrent dispatch operations
 - Supports dependency injection in handlers

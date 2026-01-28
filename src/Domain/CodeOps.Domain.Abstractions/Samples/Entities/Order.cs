@@ -1,5 +1,6 @@
 ﻿using CodeOps.Domain.Abstractions.Samples.Entities.Rules;
 using CodeOps.Domain.Abstractions.Samples.Enum;
+using CodeOps.Domain.Abstractions.Samples.Events;
 
 namespace CodeOps.Domain.Abstractions.Samples.Entities
 {
@@ -21,14 +22,17 @@ namespace CodeOps.Domain.Abstractions.Samples.Entities
 
         public static Order Create(OrderId id, IEnumerable<OrderLine> lines)
         {
-            return new Order(id, lines);
+            var order = new Order(id, lines);
+            order.RaiseDomainEvent(new OrderCreatedEvent { OrderId = id });
+            return order;
         }
 
-        public void Cancel()
+        public void Cancel(string? reason = null)
         {
             RuleEngine.Validate(this, new OrderCannotBeCancelledRule());
 
             Status = OrderStatus.Cancelled;
+            RaiseDomainEvent(new OrderCancelledEvent { OrderId = Id, Reason = reason });
         }
 
         public void AddLine(OrderLine line)

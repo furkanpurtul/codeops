@@ -9,7 +9,7 @@ namespace CodeOps.Domain.Abstractions.Samples.Entities
         public Money UnitPrice { get; }
 
         private OrderLine(OrderLineId id, string sku, int quantity, Money unitPrice)
-            : base(id, [new SkuNotEmptyRule(), new QuantityPositiveRule(), new UnitPriceNotNullRule()])
+            : base(id, [])
         {
             Sku = sku;
             Quantity = quantity;
@@ -18,7 +18,10 @@ namespace CodeOps.Domain.Abstractions.Samples.Entities
 
         public static OrderLine Create(OrderLineId id, string sku, int quantity, Money unitPrice)
         {
-            return new OrderLine(id, sku, quantity, unitPrice);
+            var line = new OrderLine(id, sku, quantity, unitPrice);
+            // Validate after construction when properties are set
+            RuleEngine.Validate(line, [new SkuNotEmptyRule(), new QuantityPositiveRule(), new UnitPriceNotNullRule()]);
+            return line;
         }
 
         private sealed class SkuNotEmptyRule : IRule<OrderLine>

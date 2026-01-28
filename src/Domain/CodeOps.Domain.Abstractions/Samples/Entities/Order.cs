@@ -11,7 +11,7 @@ namespace CodeOps.Domain.Abstractions.Samples.Entities
 
         public OrderStatus Status { get; private set; }
 
-        private Order(OrderId id, IEnumerable<OrderLine> lines) : base(id, [new AtLeastOneLineRule(), new AllLinesSameCurrencyRule()])
+        private Order(OrderId id, IEnumerable<OrderLine> lines) : base(id, [])
         {
             Status = OrderStatus.Pending;
             if (lines != null)
@@ -23,6 +23,8 @@ namespace CodeOps.Domain.Abstractions.Samples.Entities
         public static Order Create(OrderId id, IEnumerable<OrderLine> lines)
         {
             var order = new Order(id, lines);
+            // Validate after construction when properties are set
+            RuleEngine.Validate(order, [new AtLeastOneLineRule(), new AllLinesSameCurrencyRule()]);
             order.RaiseDomainEvent(new OrderCreatedEvent { OrderId = id });
             return order;
         }

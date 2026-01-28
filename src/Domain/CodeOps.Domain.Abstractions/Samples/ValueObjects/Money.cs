@@ -10,16 +10,19 @@ namespace CodeOps.Domain.Abstractions.Samples.ValueObjects
         public string Currency { get; } 
 
         private Money(decimal amount, string currency) : 
-            base([new AmountNonNegativeRule(), new CurrencyIso4217Rule()])
+            base([])
         {
             Amount = amount;
-            Currency = currency; 
+            Currency = currency;
         }
 
         public static Money Of(decimal amount, string currency)
         {
             var normalized = NormalizeCurrency(currency);
-            return new Money(amount, normalized);
+            var money = new Money(amount, normalized);
+            // Validate after construction when properties are set
+            RuleEngine.Validate(money, [new AmountNonNegativeRule(), new CurrencyIso4217Rule()]);
+            return money;
         }
 
         public static Money Zero(string currency) => Of(0m, currency);

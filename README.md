@@ -32,10 +32,11 @@ A comprehensive, production-ready library of domain-driven design (DDD) building
 - **Strong Typing**: Strongly-typed IDs with compile-time safety
 - **Built-in Validation**: Rule-based invariant enforcement with `RuleEngine`
 - **Smart Enumerations**: Type-safe alternatives to C# enums with rich behavior
-- **Domain Events**: First-class support for domain event sourcing
+- **Domain Events**: First-class support for domain events with framework-level dispatcher
+- **Event Dispatcher**: Built-in `DomainEventDispatcher` with dependency injection support
 - **Performance Optimized**: Cached equality components, lock-free implementations
 - **Thread-Safe**: Concurrent-safe caching and immutable designs
-- **Zero Dependencies**: No external package dependencies
+- **Minimal Dependencies**: Only requires Microsoft.Extensions.DependencyInjection for dispatcher
 - **Clean Architecture**: Follows SOLID principles and DDD best practices
 
 ---
@@ -695,20 +696,18 @@ public interface IDomainEvent
 #### Example Events
 
 ```csharp
-public sealed record OrderCreatedEvent(
-    OrderId OrderId,
-    CustomerId CustomerId,
-    DateTime OccurredOn) : IDomainEvent;
+public sealed record OrderCreatedEvent : IDomainEvent
+{
+    public required OrderId OrderId { get; init; }
+    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
+}
 
-public sealed record OrderShippedEvent(
-    OrderId OrderId,
-    ShippingAddress Address,
-    DateTime ShippedAt) : IDomainEvent;
-
-public sealed record OrderCancelledEvent(
-    OrderId OrderId,
-    string Reason,
-    DateTime CancelledAt) : IDomainEvent;
+public sealed record OrderCancelledEvent : IDomainEvent
+{
+    public required OrderId OrderId { get; init; }
+    public string? Reason { get; init; }
+    public DateTime CancelledAt { get; init; } = DateTime.UtcNow;
+}
 ```
 
 #### Raising Events
@@ -716,64 +715,105 @@ public sealed record OrderCancelledEvent(
 ```csharp
 public sealed class Order : AggregateRoot<Order, OrderId>
 {
-    public static Order Create(OrderId id, CustomerId customerId, 
-                               IEnumerable<OrderLine> lines)
+    public static Order Create(OrderId id, IEnumerable<OrderLine> lines)
     {
-        var order = new Order(id, customerId, lines);
-        order.RaiseDomainEvent(new OrderCreatedEvent(
-            id, 
-            customerId,
-            DateTime.UtcNow));
+        var order = new Order(id, lines);
+        order.RaiseDomainEvent(new OrderCreatedEvent { OrderId = id });
         return order;
     }
 
-    public void Ship(ShippingAddress address)
+    public void Cancel(string? reason = null)
     {
-        RuleEngine.Validate(this, new OrderCanBeShippedRule());
+        RuleEngine.Validate(this, new OrderCannotBeCancelledRule());
         
-        Status = OrderStatus.Shipped;
-        ShippedAt = DateTime.UtcNow;
-        
-        RaiseDomainEvent(new OrderShippedEvent(
-            Id, 
-            address, 
-            ShippedAt.Value));
+        Status = OrderStatus.Cancelled;
+        RaiseDomainEvent(new OrderCancelledEvent { OrderId = Id, Reason = reason });
     }
 }
 ```
 
-#### Dispatching Events
+#### Domain Event Dispatcher (Framework-Level)
+
+The framework provides a built-in domain event dispatcher with handler resolution via dependency injection.
+
+**Key Components:**
+- `IDomainEventDispatcher` - Service for dispatching events
+- `IDomainEventHandler<TEvent>` - Interface for event handlers
+- `DomainEventDispatcher` - Default implementation with DI integration
+
+**Setting Up the Dispatcher:**
 
 ```csharp
-// In your application layer / use case handler
+using Microsoft.Extensions.DependencyInjection;
+
+// Register the dispatcher
+services.AddSingleton<IDomainEventDispatcher, DomainEventDispatcher>();
+
+// Register event handlers
+services.AddTransient<IDomainEventHandler<OrderCreatedEvent>, OrderCreatedEventHandler>();
+services.AddTransient<IDomainEventHandler<OrderCancelledEvent>, OrderCancelledEventHandler>();
+```
+
+**Creating Event Handlers:**
+
+```csharp
+public sealed class OrderCreatedEventHandler : IDomainEventHandler<OrderCreatedEvent>
+{
+    public Task HandleAsync(OrderCreatedEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        // Handle the event - send notifications, update read models, etc.
+        Console.WriteLine($"Order {domainEvent.OrderId.Value} was created");
+        return Task.CompletedTask;
+    }
+}
+```
+
+**Dispatching Events in Application Layer:**
+
+```csharp
 public class PlaceOrderHandler
 {
     private readonly IOrderRepository _repository;
-    // This is not included use your own dispatcher
     private readonly IDomainEventDispatcher _eventDispatcher;
 
     public async Task<OrderId> HandleAsync(PlaceOrderCommand command)
     {
         var order = Order.Create(
             OrderId.New(),
-            command.CustomerId,
             command.Lines);
 
         await _repository.AddAsync(order);
-        
-        // Dispatch events after successful persistence
-        var events = order.DequeueDomainEvents();
         await _repository.SaveChangesAsync();
         
-        foreach (var evt in events)
-        {
-            await _eventDispatcher.DispatchAsync(evt);
-        }
+        // Dispatch events after successful persistence
+        // This automatically dequeues events from the aggregate
+        await _eventDispatcher.DispatchAsync(order);
 
         return order.Id;
     }
 }
 ```
+
+**Alternative Dispatch Methods:**
+
+```csharp
+// Dispatch a single event
+await _eventDispatcher.DispatchAsync(domainEvent);
+
+// Dispatch multiple events
+var events = order.DequeueDomainEvents();
+await _eventDispatcher.DispatchAsync(events);
+
+// Dispatch from aggregate (automatically dequeues)
+await _eventDispatcher.DispatchAsync(order);
+```
+
+**Handler Features:**
+- Multiple handlers can be registered for the same event type
+- Handlers are invoked sequentially in registration order
+- Handler exceptions are collected and wrapped in `AggregateException`
+- Thread-safe for concurrent dispatch operations
+- Supports dependency injection in handlers
 
 ---
 
@@ -834,6 +874,14 @@ public class PlaceOrderHandler
 | `RuleSet<TContext>` | Collection of rules | `Rules` |
 | `Validatable<TDerived>` | Base for validated types | `Validate()` |
 
+### Domain Event Types
+
+| Type | Purpose | Key Methods |
+|------|---------|-------------|
+| `IDomainEventDispatcher` | Event dispatcher service | `DispatchAsync(event)`, `DispatchAsync(events)`, `DispatchAsync(aggregate)` |
+| `IDomainEventHandler<TEvent>` | Event handler interface | `HandleAsync(event, cancellationToken)` |
+| `DomainEventDispatcher` | Default dispatcher implementation | Auto-resolves handlers via DI |
+
 ### Interfaces
 
 | Interface | Purpose |
@@ -844,6 +892,8 @@ public class PlaceOrderHandler
 | `IAggregateRoot<TId>` | Generic aggregate with ID |
 | `IStronglyTypedId` | Strongly-typed ID marker |
 | `IDomainEvent` | Domain event marker |
+| `IDomainEventHandler<TEvent>` | Domain event handler contract |
+| `IDomainEventDispatcher` | Domain event dispatcher contract |
 | `IAuditable` | Auditable entity marker |
 
 ---

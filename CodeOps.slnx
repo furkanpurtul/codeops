@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="src/CodeOps.Api/CodeOps.Api.csproj" Id="7311c734-948c-4582-b0d3-1edaf60bebdc" />
+  <Project Path="src/CodeOps.Application/CodeOps.Application.csproj" Id="20d207c1-7afd-4d9c-9fad-2a0112639d52" />
+  <Project Path="src/CodeOps.Domain/CodeOps.Domain.csproj" Id="6ffd89e3-22b2-49d0-a467-6d2c258041cb" />
+  <Project Path="src/CodeOps.Hosting/CodeOps.Hosting.csproj" Id="d02228ab-164d-4218-bdb2-41a1ccc5f0c3" />
+  <Project Path="src/CodeOps.Infrastructure.EntityFrameworkCore.Npgsql/CodeOps.Infrastructure.EntityFrameworkCore.Npgsql.csproj" Id="c10681fc-60f9-4113-a835-883e986a0e18" />
+  <Project Path="src/CodeOps.Infrastructure.Mediator/CodeOps.Infrastructure.Mediator.csproj" Id="821d16a0-28b8-4952-8778-59b952c05442" />
+</Solution>

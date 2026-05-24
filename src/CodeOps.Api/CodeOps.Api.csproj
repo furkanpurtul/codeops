@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" />
+    <PackageReference Include="Asp.Versioning.OpenApi" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.Identity.Web" />
+    <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CodeOps.Application\CodeOps.Application.csproj" />
+    <ProjectReference Include="..\CodeOps.Hosting\CodeOps.Hosting.csproj" />
+    <ProjectReference Include="..\CodeOps.Infrastructure.EntityFrameworkCore.Npgsql\CodeOps.Infrastructure.EntityFrameworkCore.Npgsql.csproj" />
+    <ProjectReference Include="..\CodeOps.Infrastructure.Mediator\CodeOps.Infrastructure.Mediator.csproj" />
+  </ItemGroup>
+  
+</Project>

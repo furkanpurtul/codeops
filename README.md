@@ -1,263 +1,206 @@
-# CodeOps.Domain.Abstractions
+# CodeOps
 
-A comprehensive, production-ready library of domain-driven design (DDD) building blocks for .NET 8+ applications. This library provides strongly-typed base classes and utilities for implementing tactical DDD patterns with built-in invariant validation, domain events, and more.
+CodeOps is a .NET 10 template for building opinionated, layered backend services. The repository already contains a runnable ASP.NET Core API shell, versioned OpenAPI support, a custom mediator implementation, DDD-oriented domain primitives, and PostgreSQL infrastructure scaffolding.
 
-[![.NET 8.0](https://img.shields.io/badge/.NET-8.0-blue.svg)](https://dotnet.microsoft.com/download)
+[![.NET 10.0](https://img.shields.io/badge/.NET-10.0-blue.svg)](https://dotnet.microsoft.com/download)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
----
+## What This Template Gives You
 
-## Table of Contents
+- A thin API host with controllers, problem details, health checks, HTTPS redirection, API versioning, and OpenAPI/Swagger.
+- A custom mediator stack that discovers commands, queries, notifications, and pipeline behaviors by scanning loaded assemblies.
+- Domain building blocks for aggregates, entities, value objects, strongly typed IDs, enumerations, repositories, and domain violations.
+- Infrastructure scaffolding for Entity Framework Core with PostgreSQL and domain event dispatch during `SaveChangesAsync`.
+- A hosting layer that restricts runtime environments to `Development`, `Test`, `Staging`, and `Production`.
 
-- [Features](#-features)
-- [Installation](#-installation)
-- [Quick Start](#-quick-start)
-- [Core Concepts](#-core-concepts)
-  - [Entities](#entities)
-  - [Aggregate Roots](#aggregate-roots)
-  - [Value Objects](#value-objects)
-  - [Strongly Typed IDs](#strongly-typed-ids)
-  - [Enumerations](#enumerations)
-  - [Rules & Validation](#rules--validation)
-  - [Domain Events](#domain-events)
-- [Advanced Topics](#-advanced-topics)
-- [Design Principles](#-design-principles)
-- [API Reference](#-api-reference)
+## Current State Of The Template
 
----
+This repository is a starter, not a finished application.
 
-## Features
+- The API currently exposes one sample controller: `GET /api/v1/examples`.
+- Health endpoints are mapped at `/health/live` and `/health/ready`.
+- Versioned OpenAPI JSON and Swagger UI are available outside production.
+- `CodeOps.Application` contains abstractions and behaviors, but its `AddApplication` extension is still empty.
+- PostgreSQL support exists in `CodeOps.Infrastructure.EntityFrameworkCore.Npgsql`, but the API host does not yet call `AddNpgsql`, so database-backed behavior is scaffolded rather than fully wired.
 
-- **Tactical DDD Patterns**: Entity, Aggregate Root, Value Object, Domain Events
-- **Strong Typing**: Strongly-typed IDs with compile-time safety
-- **Built-in Validation**: Rule-based invariant enforcement with `RuleEngine`
-- **Smart Enumerations**: Type-safe alternatives to C# enums with rich behavior
-- **Domain Events**: First-class support for domain event sourcing
-- **Performance Optimized**: Cached equality components, lock-free implementations
-- **Thread-Safe**: Concurrent-safe caching and immutable designs
-- **Zero Dependencies**: No external package dependencies
-- **Clean Architecture**: Follows SOLID principles and DDD best practices
+## Solution Structure
 
----
+### `src/CodeOps.Api`
 
-## Quick Start
+The presentation layer. It owns HTTP concerns such as controllers, API versioning, OpenAPI registration, health checks, and middleware ordering.
 
-### Creating a Simple Aggregate
+### `src/CodeOps.Application`
 
-```csharp
-using CodeOps.Domain.Abstractions;
+The use-case layer. It defines messaging contracts such as `ICommand`, `IQuery`, handlers, publishers, and result types. Cross-cutting request behaviors live here.
 
-// 1. Define a strongly-typed ID
-public sealed record OrderId : StronglyTypedId<Guid>
-{
-    public OrderId(Guid value) : base(value) { }
-    public static OrderId New() => new(Guid.NewGuid());
-}
+### `src/CodeOps.Domain`
 
-// 2. Create your aggregate root
-public sealed class Order : AggregateRoot<Order, OrderId>
-{
-    private readonly List<OrderLine> _lines = [];
-    public IReadOnlyCollection<OrderLine> Lines => _lines.AsReadOnly();
-    public OrderStatus Status { get; private set; }
+The core domain model. It provides reusable DDD primitives such as aggregate roots, entities, value objects, strongly typed IDs, enumerations, repositories, and domain violation helpers.
 
-    private Order(OrderId id, IEnumerable<OrderLine> lines) 
-        : base(id, [new AtLeastOneLineRule(), new AllLinesSameCurrencyRule()])
-    {
-        Status = OrderStatus.Pending;
-        _lines.AddRange(lines);
-        // Constructor validates invariants automatically
-    }
+### `src/CodeOps.Infrastructure.Mediator`
 
-    public static Order Create(OrderId id, IEnumerable<OrderLine> lines)
-    {
-        return new Order(id, lines);
-    }
+The in-process messaging implementation. It scans assemblies for handlers and pipeline behaviors, enforces single request-handler registration, and supports pluggable publish strategies.
 
-    public void Cancel()
-    {
-        RuleEngine.Validate(this, new OrderCannotBeCancelledRule());
-        Status = OrderStatus.Cancelled;
-        RaiseDomainEvent(new OrderCancelledEvent(Id));
-    }
-}
+### `src/CodeOps.Infrastructure.EntityFrameworkCore.Npgsql`
 
-// 3. Define validation rules
-public sealed class AtLeastOneLineRule : IRule<Order>
-{
-    public string Describe(Order context) => "Order must have at least one line.";
-    public bool IsViolatedBy(Order context) => context.Lines.Count == 0;
-}
+The database infrastructure. It contains `ApplicationDbContext`, Npgsql options, EF Core setup, and domain-event dispatch integration tied to persistence.
+
+### `src/CodeOps.Hosting`
+
+Shared hosting primitives. It validates allowed environments and centralizes option registration helpers used by the other projects.
+
+## How To Run The Template
+
+### Prerequisites
+
+- .NET 10 SDK
+- A PostgreSQL instance if you plan to wire the readiness check and persistence layer
+
+### Build
+
+```powershell
+dotnet build .\CodeOps.slnx
 ```
 
-### Creating a Value Object
+### Run The API
 
-```csharp
-public sealed class Money : ValueObject<Money>
-{
-    public decimal Amount { get; }
-    public string Currency { get; }
-
-    private Money(decimal amount, string currency) 
-        : base([new AmountNonNegativeRule(), new CurrencyIso4217Rule()])
-    {
-        Amount = amount;
-        Currency = currency.ToUpperInvariant();
-    }
-
-    public static Money Of(decimal amount, string currency) 
-        => new(amount, currency);
-
-    public static Money operator +(Money a, Money b)
-    {
-        if (a.Currency != b.Currency)
-            throw new InvalidOperationException("Cannot add money with different currencies");
-        return Of(a.Amount + b.Amount, a.Currency);
-    }
-
-    protected override IEnumerable<object?> GetEqualityComponents()
-    {
-        yield return Amount;
-        yield return Currency;
-    }
-
-    public override string ToString() => $"{Amount:N2} {Currency}";
-}
+```powershell
+dotnet run --project .\src\CodeOps.Api\CodeOps.Api.csproj --launch-profile Development
 ```
 
----
+The development launch profile uses `https://localhost:5000` and opens Swagger at `/swagger`.
 
-## Core Concepts
+### Available Environments
 
-### Entities
+The host validates environment names and currently accepts only:
 
-Entities are objects with a unique identity that persists over time, even as their attributes change.
+- `Development`
+- `Test`
+- `Staging`
+- `Production`
 
-#### Base Class: `Entity<TDerived, TId>`
+If you add deployment-specific configuration, keep those names aligned with the hosting layer.
 
-```csharp
-public abstract class Entity<TDerived, TId> : Validatable<TDerived>, IEntity<TId>
-    where TDerived : Entity<TDerived, TId>
-    where TId : class, IStronglyTypedId
+## Current HTTP Endpoints
+
+### Health
+
+- `GET /health/live`
+- `GET /health/ready`
+
+### Sample API
+
+- `GET /api/v1/examples`
+
+The API versioning stack also recognizes:
+
+- URL segment versioning, for example `/api/v1/examples`
+- Header versioning via `x-api-version`
+- Query string versioning via `api-version`
+
+### OpenAPI
+
+Outside production, the API exposes:
+
+- Swagger UI at `/swagger`
+- Versioned OpenAPI documents at `/openapi/{group}.json`, for example `/openapi/v1.json`
+
+## Core Concepts In This Template
+
+### 1. Layered Architecture
+
+Dependencies flow inward.
+
+- API depends on application contracts and infrastructure composition.
+- Application defines use-case abstractions and result handling.
+- Domain stays focused on business concepts and invariants.
+- Infrastructure implements technical concerns such as mediator dispatch and persistence.
+
+This keeps HTTP, persistence, and domain logic separated so you can replace infrastructure without rewriting core behavior.
+
+### 2. Command And Query Messaging
+
+The application layer models use cases as commands and queries.
+
+- Commands implement `ICommand` or `ICommand<TResponse>`.
+- Queries implement `IQuery<TResponse>`.
+- Handlers implement matching handler interfaces.
+- Pipeline behaviors can wrap requests for validation, logging, transactions, or exception translation.
+
+The mediator infrastructure discovers handlers automatically from loaded assemblies, so adding a new feature is usually a matter of adding a request type and a handler.
+
+### 3. Result-Based Application Responses
+
+The `Result` and `Result<T>` types encode success and failure without forcing exception-driven flow for expected outcomes. This is useful when mapping domain or validation failures into predictable API responses.
+
+### 4. Domain-Driven Building Blocks
+
+The domain project provides reusable primitives for tactical DDD patterns.
+
+- `AggregateRoot<TId>` tracks domain events and optimistic concurrency version.
+- `Entity<TId>` gives identity-based equality.
+- `ValueObject<TDerived>` supports structural equality.
+- `StronglyTypedId<TValue>` reduces primitive obsession.
+- `Enumeration<TEnumeration>` supports rich enum-like behavior.
+
+Use these when you start modeling real business concepts instead of leaving the template at the transport layer.
+
+### 5. Domain Violations
+
+The domain layer includes `Ensure` and domain violation types for expressing business rule failures explicitly. The application behavior `DomainViolationBehavior<TRequest, TResponse>` shows how domain exceptions can be translated into failed results instead of leaking directly to the API surface.
+
+### 6. Persistence And Domain Events
+
+`ApplicationDbContext` acts as the unit of work. During `SaveChangesAsync`, it can publish domain events through `IPublisher` before committing. This gives you a clear extension point for keeping side effects aligned with aggregate changes.
+
+## How To Extend The Template
+
+### Add A New Feature
+
+1. Define a command or query in the application layer.
+2. Implement its handler in an assembly loaded by the API host.
+3. Add domain types or rules in the domain layer as needed.
+4. Expose the use case from a controller in `CodeOps.Api`.
+5. If the feature requires persistence, register the PostgreSQL infrastructure and add EF Core mappings.
+
+### Wire PostgreSQL
+
+To make the persistence stack active, add the Npgsql registration in the API host and configure the `Npgsql` section in appsettings or environment variables.
+
+Expected settings:
+
+- `Npgsql:Host`
+- `Npgsql:Port`
+- `Npgsql:Database`
+- `Npgsql:Username`
+- `Npgsql:Password`
+
+After that, create migrations from the infrastructure project and use the API project as the startup project.
+
+Example commands:
+
+```powershell
+dotnet ef migrations add InitialCreate --project .\src\CodeOps.Infrastructure.EntityFrameworkCore.Npgsql --startup-project .\src\CodeOps.Api
+dotnet ef database update --project .\src\CodeOps.Infrastructure.EntityFrameworkCore.Npgsql --startup-project .\src\CodeOps.Api
 ```
 
-#### Key Features
+## Suggested First Steps After Cloning
 
-- **Identity-Based Equality**: Two entities are equal if they have the same ID and type
-- **Transient Detection**: `IsTransient` property indicates if entity has been persisted
-- **Proxy Support**: `GetUnproxiedType()` for ORM lazy-loading scenarios
-- **Automatic Validation**: Enforces invariants through rule engine
+1. Rename the sample `ExamplesController` to your first real feature area.
+2. Implement `AddApplication` to register validators, feature services, and other application-level dependencies.
+3. Decide whether you want the custom mediator implementation to remain in-process only or to integrate with external messaging.
+4. Wire PostgreSQL if the service needs persistence and readiness checks tied to the database.
+5. Add tests around handlers, domain rules, and API behavior before growing the template.
 
-#### Example
+## Development Notes
 
-```csharp
-public sealed class Customer : Entity<Customer, CustomerId>
-{
-    public string Name { get; private set; }
-    public Email Email { get; private set; }
+- Swagger and OpenAPI are disabled in production by design.
+- The launch profiles all bind to `https://localhost:5000`.
+- The `.http` file under `src/CodeOps.Api` has been updated to reflect the current endpoints.
 
-    private Customer(CustomerId id, string name, Email email) 
-        : base(id, [new NameNotEmptyRule(), new EmailValidRule()])
-    {
-        Name = name;
-        Email = email;
-    }
+## License
 
-    public static Customer Create(CustomerId id, string name, Email email)
-    {
-        return new Customer(id, name, email);
-    }
-
-    public void UpdateEmail(Email newEmail)
-    {
-        RuleEngine.Validate(this, new EmailCanBeChangedRule());
-        Email = newEmail;
-    }
-}
-```
-
-#### Equality Behavior
-
-```csharp
-var customer1 = Customer.Create(customerId, "John", email);
-var customer2 = Customer.Create(customerId, "John", email);
-
-customer1 == customer2; // true - same ID
-customer1.Equals(customer2); // true
-
-var transient = Customer.Create(new CustomerId(Guid.Empty), "Jane", email);
-transient.IsTransient; // true if ID is default value
-```
-
----
-
-### Aggregate Roots
-
-Aggregates are clusters of domain objects that can be treated as a single unit. The aggregate root is the entry point.
-
-#### Base Class: `AggregateRoot<TDerived, TId>`
-
-```csharp
-public abstract class AggregateRoot<TDerived, TId> : Entity<TDerived, TId>, IAggregateRoot<TId>
-    where TDerived : AggregateRoot<TDerived, TId>
-    where TId : class, IStronglyTypedId
-```
-
-#### Key Features
-
-- **Domain Events**: Built-in domain event collection and dispatching
-- **Optimistic Concurrency**: Version tracking for optimistic locking
-- **Consistency Boundary**: Enforces transactional consistency within the aggregate
-- **Event Sourcing Support**: Compatible with event sourcing architectures
-
-#### Domain Events
-
-```csharp
-public sealed class Order : AggregateRoot<Order, OrderId>
-{
-    public void Ship(ShippingAddress address)
-    {
-        RuleEngine.Validate(this, new OrderCanBeShippedRule());
-        
-        Status = OrderStatus.Shipped;
-        ShippedAt = DateTime.UtcNow;
-        
-        // Raise domain event
-        RaiseDomainEvent(new OrderShippedEvent(Id, address, ShippedAt));
-        // Version is automatically incremented
-    }
-}
-
-```
-
-#### Version Management
-
-```csharp
-var order = Order.Create(orderId, lines);
-Console.WriteLine(order.Version); // 0
-
-order.Ship(address); // Raises event
-Console.WriteLine(order.Version); // 1
-
-order.Complete(); // Raises another event
-Console.WriteLine(order.Version); // 2
-
-// Use version for optimistic concurrency
-await repository.UpdateAsync(order, expectedVersion: order.Version);
-```
-
----
-
-### Value Objects
-
-Value objects are immutable objects defined by their attributes rather than identity.
-
-#### Base Class: `ValueObject<TDerived>`
-
-```csharp
-public abstract class ValueObject<TDerived> : Validatable<TDerived>
-    where TDerived : ValueObject<TDerived>
-```
+MIT. See [LICENSE](LICENSE).
 
 #### Key Features
 

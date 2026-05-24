@@ -1,0 +1,11 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\CodeOps.Application\CodeOps.Application.csproj" />
+		<ProjectReference Include="..\CodeOps.Hosting\CodeOps.Hosting.csproj" />
+	</ItemGroup>
+
+</Project>

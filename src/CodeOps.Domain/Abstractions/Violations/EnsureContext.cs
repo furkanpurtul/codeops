@@ -9,6 +9,7 @@ namespace CodeOps.Domain.Abstractions.Violations
         internal EnsureContext(DomainViolationSource source)
         {
             ArgumentNullException.ThrowIfNull(source);
+
             Source = source;
         }
 
@@ -16,25 +17,60 @@ namespace CodeOps.Domain.Abstractions.Violations
 
         public bool HasViolations => _violations.Count > 0;
 
-        internal void AddViolation(DomainViolation violation)
-        {
-            ArgumentNullException.ThrowIfNull(violation);
-            _violations.Add(violation);
-        }
-
         public GuardContext<TSource, TValue> Guard<TValue>(TValue value, [CallerArgumentExpression(nameof(value))] string memberName = "")
         {
-            ArgumentException.ThrowIfNullOrWhiteSpace(memberName);
-
-            return new GuardContext<TSource, TValue>(this, value, memberName);
+            var context = new GuardContext<TSource, TValue>(this, value, memberName);
+            return context;
         }
 
-        public EnsureContext<TSource> Guard<TValue>(TValue value, Action<GuardContext<TSource, TValue>> configure, [CallerArgumentExpression(nameof(value))] string memberName = "")
+        public ValidateContext<TSource, TValue> Validate<TValue>(TValue value, [CallerArgumentExpression(nameof(value))] string memberName = "")
+        {
+            var context = new ValidateContext<TSource, TValue>(this, value, memberName);
+            return context;
+        }
+
+        public GuardContext<TSource, TValue> Guard<TValue>(TValue value, out TValue output, [CallerArgumentExpression(nameof(value))] string memberName = "")
+        {
+            var context = new GuardContext<TSource, TValue>(this, value, memberName);
+            output = context.Value;
+            return context;
+        }
+
+        public ValidateContext<TSource, TValue> Validate<TValue>(TValue value, out TValue output, [CallerArgumentExpression(nameof(value))] string memberName = "")
+        {
+            var context = new ValidateContext<TSource, TValue>(this, value, memberName);
+            output = context.Value;
+            return context;
+        }
+
+        public EnsureContext<TSource> Guard<TValue>
+        (
+            TValue value, 
+            Action<GuardContext<TSource, TValue>> configure, 
+            [CallerArgumentExpression(nameof(value))] string memberName = ""
+        )
         {
             ArgumentNullException.ThrowIfNull(configure);
 
             var guardContext = Guard(value, memberName);
+
             configure(guardContext);
+
+            return this;
+        }
+
+        public EnsureContext<TSource> Validate<TValue>
+        (
+            TValue value,
+            Action<ValidateContext<TSource, TValue>> configure,
+            [CallerArgumentExpression(nameof(value))] string memberName = ""
+        )
+        {
+            ArgumentNullException.ThrowIfNull(configure);
+
+            var validateContext = Validate(value, memberName);
+
+            configure(validateContext);
 
             return this;
         }
@@ -84,9 +120,17 @@ namespace CodeOps.Domain.Abstractions.Violations
             ArgumentNullException.ThrowIfNull(rules);
 
             foreach (var rule in rules)
-            {
                 Check(rule);
-            }
+
+            return this;
+        }
+
+        public EnsureContext<TSource> Check(IEnumerable<IRule> rules)
+        {
+            ArgumentNullException.ThrowIfNull(rules);
+
+            foreach (var rule in rules)
+                Check(rule);
 
             return this;
         }
@@ -96,9 +140,7 @@ namespace CodeOps.Domain.Abstractions.Violations
             ArgumentNullException.ThrowIfNull(rules);
 
             foreach (var rule in rules)
-            {
                 Check(context, rule);
-            }
 
             return this;
         }
@@ -108,31 +150,37 @@ namespace CodeOps.Domain.Abstractions.Violations
             ArgumentNullException.ThrowIfNull(rules);
 
             foreach (var rule in rules)
-            {
                 Check(context, rule);
-            }
 
             return this;
         }
 
-        public EnsureContext<TSource> CheckWhen<TContext>(bool condition, params IRule[] rules)
+        public EnsureContext<TSource> CheckWhen(bool condition, params IRule[] rules)
         {
-            return !condition ? this : Check(rules);
+            return condition
+                ? Check(rules)
+                : this;
         }
 
-        public EnsureContext<TSource> CheckWhen<TContext>(bool condition, IEnumerable<IRule> rules)
+        public EnsureContext<TSource> CheckWhen(bool condition, IEnumerable<IRule> rules)
         {
-            return !condition ? this : Check(rules);
+            return condition
+                ? Check(rules)
+                : this;
         }
 
         public EnsureContext<TSource> CheckWhen<TContext>(bool condition, TContext context, params IRule<TContext>[] rules)
         {
-            return !condition ? this : Check(context, rules);
+            return condition
+                ? Check(context, rules)
+                : this;
         }
 
         public EnsureContext<TSource> CheckWhen<TContext>(bool condition, TContext context, IEnumerable<IRule<TContext>> rules)
         {
-            return !condition ? this : Check(context, rules);
+            return condition
+                ? Check(context, rules)
+                : this;
         }
 
         public IReadOnlyCollection<DomainViolation> GetViolations()
@@ -142,7 +190,32 @@ namespace CodeOps.Domain.Abstractions.Violations
 
         public EnsureContext<TSource> OrThrow()
         {
-            return HasViolations ? throw new DomainViolationException(Source, GetViolations()) : this;
+            return !HasViolations 
+                ? this 
+                : throw new DomainViolationException(Source, GetViolations());
+        }
+
+        internal void AddViolation(DomainViolation violation)
+        {
+            ArgumentNullException.ThrowIfNull(violation);
+
+            _violations.Add(violation);
+        }
+
+        internal void AddViolation(ViolationKind kind, string memberName, string message)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(memberName);
+            ArgumentException.ThrowIfNullOrWhiteSpace(message);
+
+            var violation = new DomainViolation
+            (
+                Source,
+                kind,
+                memberName,
+                message
+            );
+
+            AddViolation(violation);
         }
     }
 }

@@ -4,8 +4,7 @@
     (
         DomainViolationSource Source,
         ViolationKind Kind,
-        string Name,
-        string Message,
-        string? MemberName = null
+        string MemberName,
+        string Message
     );
 }

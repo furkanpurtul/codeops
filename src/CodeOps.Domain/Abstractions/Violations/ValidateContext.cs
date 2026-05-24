@@ -1,14 +1,14 @@
 ﻿namespace CodeOps.Domain.Abstractions.Violations
 {
-    public sealed class GuardContext<TSource, TValue> : IConstraintContext<TSource, TValue>
+    public sealed class ValidateContext<TSource, TValue> : IConstraintContext<TSource, TValue>
     {
         private readonly EnsureContext<TSource> _ensureContext;
 
         public TValue Value { get; }
 
         public string MemberName { get; }
-        
-        internal GuardContext(EnsureContext<TSource> ensureContext, TValue value, string memberName)
+
+        internal ValidateContext(EnsureContext<TSource> ensureContext, TValue value, string memberName)
         {
             ArgumentNullException.ThrowIfNull(ensureContext);
             ArgumentException.ThrowIfNullOrWhiteSpace(memberName);
@@ -22,7 +22,7 @@
         {
             _ensureContext.AddViolation
             (
-                ViolationKind.Unexpected,
+                ViolationKind.Validation,
                 MemberName,
                 message
             );

@@ -1,6 +1,6 @@
 ﻿namespace CodeOps.Domain.Abstractions.Violations
 {
-    public sealed record DomainViolationSource(string Type, string? Method = null)
+    public sealed record ViolationSource(string Type, string? Method = null)
     {
         public override string ToString()
         {

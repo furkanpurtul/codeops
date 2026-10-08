@@ -1,8 +1,8 @@
 ﻿namespace CodeOps.Domain.Abstractions.Violations
 {
-    public sealed record DomainViolation
+    public sealed record Violation
     (
-        DomainViolationSource Source,
+        ViolationSource Source,
         ViolationKind Kind,
         string MemberName,
         string Message

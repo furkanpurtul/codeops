@@ -6,7 +6,7 @@ namespace CodeOps.Domain.Abstractions.Violations
     {
         public static EnsureContext<TSource> For<TSource>([CallerMemberName] string operationName = "")
         {
-            var source = new DomainViolationSource
+            var source = new ViolationSource
             (
                 typeof(TSource).Name,
                 string.IsNullOrWhiteSpace(operationName) ? null : operationName

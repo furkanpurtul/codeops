@@ -2,13 +2,13 @@
 
 namespace CodeOps.Domain.Abstractions.Violations
 {
-    public sealed class DomainViolationException : Exception
+    public sealed class ViolationException : Exception
     {
-        public DomainViolationSource SourceInfo { get; }
+        public ViolationSource SourceInfo { get; }
 
-        public IReadOnlyCollection<DomainViolation> Violations { get; }
+        public IReadOnlyCollection<Violation> Violations { get; }
 
-        public DomainViolationException(DomainViolationSource sourceInfo, IReadOnlyCollection<DomainViolation> violations)
+        public ViolationException(ViolationSource sourceInfo, IReadOnlyCollection<Violation> violations)
             : base(BuildMessage(sourceInfo, violations))
         {
             ArgumentNullException.ThrowIfNull(sourceInfo);
@@ -18,7 +18,7 @@ namespace CodeOps.Domain.Abstractions.Violations
             Violations = violations;
         }
 
-        private static string BuildMessage(DomainViolationSource sourceInfo, IReadOnlyCollection<DomainViolation> violations)
+        private static string BuildMessage(ViolationSource sourceInfo, IReadOnlyCollection<Violation> violations)
         {
             ArgumentNullException.ThrowIfNull(sourceInfo);
             ArgumentNullException.ThrowIfNull(violations);

@@ -4,16 +4,16 @@ namespace CodeOps.Domain.Abstractions.Violations
 {
     public sealed class EnsureContext<TSource>
     {
-        private readonly List<DomainViolation> _violations = [];
+        private readonly List<Violation> _violations = [];
 
-        internal EnsureContext(DomainViolationSource source)
+        internal EnsureContext(ViolationSource source)
         {
             ArgumentNullException.ThrowIfNull(source);
 
             Source = source;
         }
 
-        public DomainViolationSource Source { get; }
+        public ViolationSource Source { get; }
 
         public bool HasViolations => _violations.Count > 0;
 
@@ -81,7 +81,7 @@ namespace CodeOps.Domain.Abstractions.Violations
 
             if (rule.IsViolated())
             {
-                var violation = new DomainViolation
+                var violation = new Violation
                 (
                     Source,
                     rule.Kind,
@@ -101,7 +101,7 @@ namespace CodeOps.Domain.Abstractions.Violations
 
             if (rule.IsViolatedBy(context))
             {
-                var violation = new DomainViolation
+                var violation = new Violation
                 (
                     Source,
                     rule.Kind,
@@ -183,7 +183,7 @@ namespace CodeOps.Domain.Abstractions.Violations
                 : this;
         }
 
-        public IReadOnlyCollection<DomainViolation> GetViolations()
+        public IReadOnlyCollection<Violation> GetViolations()
         {
             return _violations.AsReadOnly();
         }
@@ -192,10 +192,10 @@ namespace CodeOps.Domain.Abstractions.Violations
         {
             return !HasViolations 
                 ? this 
-                : throw new DomainViolationException(Source, GetViolations());
+                : throw new ViolationException(Source, GetViolations());
         }
 
-        internal void AddViolation(DomainViolation violation)
+        internal void AddViolation(Violation violation)
         {
             ArgumentNullException.ThrowIfNull(violation);
 
@@ -207,7 +207,7 @@ namespace CodeOps.Domain.Abstractions.Violations
             ArgumentException.ThrowIfNullOrWhiteSpace(memberName);
             ArgumentException.ThrowIfNullOrWhiteSpace(message);
 
-            var violation = new DomainViolation
+            var violation = new Violation
             (
                 Source,
                 kind,

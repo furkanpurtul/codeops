@@ -4,7 +4,7 @@ namespace CodeOps.Application.Abstractions.Results
 {
     public static class DomainViolationErrorMapper
     {
-        public static Error Map(DomainViolationException exception)
+        public static Error Map(ViolationException exception)
         {
             ArgumentNullException.ThrowIfNull(exception);
 

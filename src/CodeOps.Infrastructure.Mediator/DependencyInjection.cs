@@ -1,6 +1,7 @@
-﻿using System.Reflection;
+using System.Reflection;
 
 using CodeOps.Application.Abstractions.Messaging;
+using CodeOps.Application.Abstractions.Validation;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -40,6 +41,7 @@ namespace CodeOps.Infrastructure.Mediator
             RegisterRequestHandlers(builder.Services, discovery.RequestHandlers);
             RegisterNotificationHandlers(builder.Services, discovery.NotificationHandlers);
             RegisterBehaviors(builder.Services, discovery.Behaviors);
+            RegisterValidators(builder.Services, discovery.Validators);
 
             return builder;
         }
@@ -49,6 +51,7 @@ namespace CodeOps.Infrastructure.Mediator
             var requestHandlers = new List<ServiceRegistration>();
             var notificationHandlers = new List<ServiceRegistration>();
             var behaviors = new List<ServiceRegistration>();
+            var validators = new List<ServiceRegistration>();
 
             foreach (var assembly in assemblies)
             {
@@ -88,12 +91,18 @@ namespace CodeOps.Infrastructure.Mediator
                         if (genericTypeDefinition == typeof(IPipelineBehavior<,>))
                         {
                             behaviors.Add(new ServiceRegistration(serviceType, type));
+                            continue;
+                        }
+
+                        if (genericTypeDefinition == typeof(IValidator<>))
+                        {
+                            validators.Add(new ServiceRegistration(serviceType, type));
                         }
                     }
                 }
             }
 
-            return new DiscoveryResult([.. requestHandlers.Distinct()], [.. notificationHandlers.Distinct()], [.. behaviors.Distinct()]);
+            return new DiscoveryResult([.. requestHandlers.Distinct()], [.. notificationHandlers.Distinct()], [.. behaviors.Distinct()], [.. validators.Distinct()]);
         }
 
         private static void RegisterOpenGenericBehavior(Type type, ICollection<ServiceRegistration> behaviors)
@@ -154,6 +163,15 @@ namespace CodeOps.Infrastructure.Mediator
         }
 
         private static void RegisterBehaviors(IServiceCollection services, IEnumerable<ServiceRegistration> registrations)
+        {
+            foreach (var registration in registrations)
+            {
+                var serviceDescriptor = ServiceDescriptor.Transient(registration.ServiceType, registration.ImplementationType);
+                services.TryAddEnumerable(serviceDescriptor);
+            }
+        }
+
+        private static void RegisterValidators(IServiceCollection services, IEnumerable<ServiceRegistration> registrations)
         {
             foreach (var registration in registrations)
             {

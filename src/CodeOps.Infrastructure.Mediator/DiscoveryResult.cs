@@ -1,9 +1,11 @@
-﻿namespace CodeOps.Infrastructure.Mediator
+namespace CodeOps.Infrastructure.Mediator
 {
     internal sealed record DiscoveryResult
     (
         IReadOnlyCollection<ServiceRegistration> RequestHandlers, 
         IReadOnlyCollection<ServiceRegistration> NotificationHandlers, 
-        IReadOnlyCollection<ServiceRegistration> Behaviors
+        IReadOnlyCollection<ServiceRegistration> Behaviors,
+        IReadOnlyCollection<ServiceRegistration> Validators
     );
 }
+
